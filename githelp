@@ -1,0 +1,118 @@
+#!/usr/bin/perl
+
+use warnings;
+use strict;
+use Getopt::Long;
+use Carp;
+
+sub main {
+    my $remote;
+    my $branch;
+    my $new;
+    my @makeopts;
+
+    GetOptions ( 'remote=s'     => \$remote,
+                 'branch=s'     => \$branch,
+                 'makeopts=s'   => \@makeopts,
+                 'new'          => \$new,
+    );
+
+    @makeopts = split( /,/, join( ',', @makeopts));
+
+    my $ret = checkopts($remote, $branch, $new, @makeopts);
+
+    return $ret;
+}
+
+sub checkopts {
+    my ($remote, $branch, $new, @makeopts) = @_;
+    if ( defined $new ) {
+        if ( defined $remote && defined $branch ) {
+            checkoutNewBranch($remote, $branch, @makeopts);
+        }
+        else {
+            print "Please include both a remote and branch name for a new branch\n";
+            return 0;
+        }
+    }
+    elsif ( defined $branch ) {
+        checkoutBranch($branch, @makeopts);
+    }
+    else {
+        print "Please include a branch name to check out\n";
+        return 0;
+    }
+
+    return 1;
+
+}
+
+sub checkoutNewBranch {
+    my ($remote, $branch, @makeopts) = @_;
+
+    ########################################
+    # Run git fetch --all                  #
+    ########################################
+    
+    print "====================\n";
+    print "Fetching all remotes\n";
+    print "====================\n";
+    system( "git", "fetch", "--all" ) == 0 or croak "git fetch --all failed: $?";
+
+    ########################################
+    # Run git co -t remote/branch          #
+    ########################################
+
+    print "=======================\n";
+    print "Checking out the branch\n";
+    print "=======================\n";
+    system( "git", "co", "-t", "$remote/$branch" ) == 0 or croak "Failed to checkout the new branch: $?";
+
+    ########################################
+    # Run make if options are specified    #
+    ########################################
+
+    if ( @makeopts ) {
+        print "======================================\n";
+        print "Running make with the options provided\n";
+        print "======================================\n";
+        system( "make", @makeopts ) == 0 or croak "Make failed: $?";
+    }
+
+    return 1;
+}
+
+sub checkoutBranch {
+    my ($branch, @makeopts) = @_;
+
+    ########################################
+    # Check out the branch                 #
+    ########################################
+
+    print "=======================\n";
+    print "Checking out the branch\n";
+    print "=======================\n";
+    system( "git", "co", $branch ) == 0 or croak "Failed to checkout the branch: $?";
+
+    ########################################
+    # Run git pull to make it up to date   #
+    ########################################
+    system( "git", "pull" ) == 0 or croak "Failed to pull the branch: $?";
+    
+    ########################################
+    # Run make if options are specified    #
+    ########################################
+    
+    if ( @makeopts ) {
+        print "======================================\n";
+        print "Running make with the options provided\n";
+        print "======================================\n";
+        system( "make", @makeopts ) == 0 or croak "Make failed: $?";
+    }
+
+    return 1;
+
+}
+
+main();
+
